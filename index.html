@@ -3,40 +3,85 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chat Export</title>
-    <script>
-      async function fetchChats() {
-        const response = await fetch("/chats");
-        const chats = await response.json();
-        const container = document.getElementById("chatList");
-
-        container.innerHTML = "";
-        chats.forEach((chat) => {
-          const div = document.createElement("div");
-          div.innerHTML = `
-                    <input type="checkbox" value="${chat.filename}">
-                    <label>${chat.displayName}</label>
-                    <a href="/download/${chat.filename}" target="_blank">Download</a>
-                `;
-          container.appendChild(div);
-        });
+    <title>Upload JSON & Generate PDFs</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
       }
-
-      async function exportSelectedChats() {
-        const checkboxes = document.querySelectorAll(
-          "input[type=checkbox]:checked"
-        );
-        checkboxes.forEach((cb) => {
-          window.open(`/download/${cb.value}`);
-        });
+      #uploadSection {
+        margin-bottom: 20px;
       }
-
-      document.addEventListener("DOMContentLoaded", fetchChats);
-    </script>
+      #pdfList {
+        list-style: none;
+        padding: 0;
+      }
+      #pdfList li {
+        margin: 5px 0;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
   </head>
   <body>
-    <h2>Select Chats to Export</h2>
-    <div id="chatList"></div>
-    <button onclick="exportSelectedChats()">Export Selected Chats</button>
+    <h2>Upload Chat JSON File</h2>
+
+    <div id="uploadSection">
+      <input type="file" id="fileInput" accept=".json" />
+      <button onclick="uploadFile()">Upload & Generate PDFs</button>
+      <p id="statusMessage" class="hidden">Processing...</p>
+    </div>
+
+    <h3>Generated PDFs</h3>
+    <ul id="pdfList"></ul>
+
+    <script>
+      async function uploadFile() {
+        const fileInput = document.getElementById("fileInput").files[0];
+        const statusMessage = document.getElementById("statusMessage");
+        const pdfList = document.getElementById("pdfList");
+
+        if (!fileInput) return alert("Please select a JSON file!");
+        if (!fileInput.name.endsWith(".json"))
+          return alert("Only JSON files are allowed!");
+
+        let formData = new FormData();
+        formData.append("jsonFile", fileInput);
+
+        // Show loading message
+        statusMessage.classList.remove("hidden");
+        statusMessage.textContent = "Processing...";
+
+        try {
+          const response = await fetch("/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) throw new Error("Failed to process JSON!");
+
+          const result = await response.json();
+          statusMessage.textContent = "PDFs generated successfully!";
+
+          if (result.files) {
+            pdfList.innerHTML = "";
+            result.files.forEach((file) => {
+              const li = document.createElement("li");
+              li.innerHTML = `<a href="/download/${
+                file.filename
+              }" target="_blank">${file.displayName || file.filename}</a>`;
+              pdfList.appendChild(li);
+            });
+          }
+        } catch (error) {
+          alert(error.message);
+          statusMessage.textContent = "Error processing file.";
+        } finally {
+          setTimeout(() => statusMessage.classList.add("hidden"), 3000);
+        }
+      }
+    </script>
   </body>
 </html>
